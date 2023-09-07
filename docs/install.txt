@@ -1,0 +1,14 @@
+# Clone the ultralytics repository
+git clone https://github.com/Analytical-AI/yolov8.git
+
+# Navigate to the cloned directory
+cd yolov8 
+
+# create a conda env
+conda create -n "env name"
+
+# activate env
+conda activate "env name"
+
+# Install the package in editable mode for development
+pip install -e .
