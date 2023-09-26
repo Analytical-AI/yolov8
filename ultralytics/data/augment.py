@@ -17,6 +17,9 @@ from ultralytics.utils.ops import segment2box
 
 from .utils import polygons2masks, polygons2masks_overlap
 
+from PIL import Image
+
+
 
 # TODO: we might need a BaseTransform to make all these augments be compatible with both classification and semantic
 class BaseTransform:
@@ -180,6 +183,7 @@ class Mosaic(BaseMixTransform):
         final_labels = self._cat_labels(mosaic_labels)
         final_labels['img'] = img4
         return final_labels
+        
 
     def _mosaic9(self, labels):
         """Create a 3x3 image mosaic."""
@@ -259,6 +263,66 @@ class Mosaic(BaseMixTransform):
         good = final_labels['instances'].remove_zero_area_boxes()
         final_labels['cls'] = final_labels['cls'][good]
         return final_labels
+    
+class RandomErase:
+    """
+    Random Erase Augmentation.
+
+    This class performs mosaic augmentation by combining multiple (4 or 9) images into a single mosaic image.
+    The augmentation is applied to a dataset with a given probability.
+
+    Attributes:
+        dataset: The dataset on which the mosaic augmentation is applied.
+        imgsz (int, optional): Image size (height and width) after mosaic pipeline of a single image. Default to 640.
+        p (float, optional): Probability of applying the mosaic augmentation. Must be in the range 0-1. Default to 1.0.
+        n (int, optional): The grid size, either 4 (for 2x2) or 9 (for 3x3).
+    """
+
+    def __init__(self, p = 1.0, sl = 0.02, sh = 0.4, r1 = 0.3, r_2=1/0.3, v_l=0, v_h=255, pixel_level=False):
+        self.p = p
+        self.sl = sl
+        self.sh = sh
+        self.r1 = r1
+        self.r2 = r_2
+        self.vl = v_l
+        self.v_h = v_h
+        self.pixel = pixel_level
+
+ 
+    def __call__(self, labels):
+
+        input_img = labels["img"]
+        img_h, img_w = labels["ori_shape"]
+        #img_h, img_w = labels['resized_shape']
+
+        p_1 = np.random.rand()
+
+        num = np.random.randint(1,4)
+
+        if p_1 > self.p:
+            return labels
+        
+        top = 0
+        left = 0
+        for box in range(num):
+            for attempt in range(2):
+                s = np.random.uniform(self.sl, self.sh) * img_h * img_w
+                r = np.random.uniform(self.r1, self.r2)
+                w = int(np.sqrt(s / r))
+                h = int(np.sqrt(s * r))
+                left = np.random.randint(0, img_w-20)
+                top = np.random.randint(0, img_h-20)
+
+                if left + w <= img_w and top + h <= img_h:
+                    break
+        
+            c = np.random.uniform(self.vl, self.v_h)
+
+            if top != 0 and left != 0:
+                input_img[top:top + h, left:left + w] = c
+                labels["img"] = input_img
+
+        return labels
 
 
 class MixUp(BaseMixTransform):
@@ -271,7 +335,7 @@ class MixUp(BaseMixTransform):
         return random.randint(0, len(self.dataset) - 1)
 
     def _mix_transform(self, labels):
-        """Applies MixUp augmentation https://arxiv.org/pdf/1710.09412.pdf."""
+        """Applies MixUp /ation https://arxiv.org/pdf/1710.09412.pdf."""
         r = np.random.beta(32.0, 32.0)  # mixup ratio, alpha=beta=32.0
         labels2 = labels['mix_labels'][0]
         labels['img'] = (labels['img'] * r + labels2['img'] * (1 - r)).astype(np.uint8)
@@ -780,14 +844,36 @@ def v8_transforms(dataset, imgsz, hyp, stretch=False):
             LOGGER.warning("WARNING ⚠️ No 'flip_idx' array defined in data.yaml, setting augmentation 'fliplr=0.0'")
         elif flip_idx and (len(flip_idx) != kpt_shape[0]):
             raise ValueError(f'data.yaml flip_idx={flip_idx} length must be equal to kpt_shape[0]={kpt_shape[0]}')
-
+    '''
     return Compose([
         pre_transform,
         MixUp(dataset, pre_transform=pre_transform, p=hyp.mixup),
         Albumentations(p=1.0),
         RandomHSV(hgain=hyp.hsv_h, sgain=hyp.hsv_s, vgain=hyp.hsv_v),
         RandomFlip(direction='vertical', p=hyp.flipud),
-        RandomFlip(direction='horizontal', p=hyp.fliplr, flip_idx=flip_idx)])  # transforms
+        RandomFlip(direction='horizontal', p=hyp.fliplr, flip_idx=flip_idx),
+        RandomErase(
+            sl = hyp.sl, 
+            sh = hyp.sh,
+            r1 = hyp.r1 
+        )])  # transforms
+    '''
+    return Compose([
+            pre_transform,
+            RandomErase(
+                sl = hyp.sl, 
+                sh = hyp.sh,
+                r1 = hyp.r1,
+                p = hyp.RandomEraseP,
+                r_2=hyp.r2, 
+                v_l=hyp.vl, 
+                v_h=hyp.vh),
+            MixUp(dataset, pre_transform=pre_transform, p=hyp.mixup),
+            Albumentations(p=1.0),
+            RandomHSV(hgain=hyp.hsv_h, sgain=hyp.hsv_s, vgain=hyp.hsv_v),
+            RandomFlip(direction='vertical', p=hyp.flipud),
+            RandomFlip(direction='horizontal', p=hyp.fliplr, flip_idx=flip_idx)])  # transforms
+
 
 
 # Classification augmentations -----------------------------------------------------------------------------------------
