@@ -268,17 +268,18 @@ class RandomErase:
     """
     Random Erase Augmentation.
 
-    This class performs mosaic augmentation by combining multiple (4 or 9) images into a single mosaic image.
-    The augmentation is applied to a dataset with a given probability.
-
+    This class will randomly erase rectangles from the image and replace them with a random, solid grayscale pixel value
     Attributes:
-        dataset: The dataset on which the mosaic augmentation is applied.
-        imgsz (int, optional): Image size (height and width) after mosaic pipeline of a single image. Default to 640.
-        p (float, optional): Probability of applying the mosaic augmentation. Must be in the range 0-1. Default to 1.0.
-        n (int, optional): The grid size, either 4 (for 2x2) or 9 (for 3x3).
+        p (float, optional): Probability of applying the random erase augmentation. Must be in the range 0-1. Default to .50.
+        sl (float): min proportion of erased image against input image
+        sh (float): maximum proportion of erased image against input image
+        r1 (float): minimum apect ratio of erased area (w and h of the rectangle cut out)
+        r2 (float): maximum aspect ratio of erased area
+        vl (int): min pixel value for random erase (creates a grayscale block)
+        vh (int): max pixel value for random erase
     """
 
-    def __init__(self, p = 1.0, sl = 0.02, sh = 0.4, r1 = 0.3, r_2=1/0.3, v_l=0, v_h=255, pixel_level=False):
+    def __init__(self, p = .50, sl = 0.02, sh = 0.4, r1 = 0.3, r_2=1/0.3, v_l=0, v_h=255, pixel_level=False):
         self.p = p
         self.sl = sl
         self.sh = sh
@@ -305,13 +306,13 @@ class RandomErase:
         top = 0
         left = 0
         for box in range(num):
-            for attempt in range(2):
+            for attempt in range(4):
                 s = np.random.uniform(self.sl, self.sh) * img_h * img_w
                 r = np.random.uniform(self.r1, self.r2)
                 w = int(np.sqrt(s / r))
                 h = int(np.sqrt(s * r))
-                left = np.random.randint(0, img_w-20)
-                top = np.random.randint(0, img_h-20)
+                left = np.random.randint(0, img_w-w)
+                top = np.random.randint(0, img_h-h)
 
                 if left + w <= img_w and top + h <= img_h:
                     break
