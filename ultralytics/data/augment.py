@@ -279,14 +279,15 @@ class RandomErase:
         vh (int): max pixel value for random erase
     """
 
-    def __init__(self, p = .50, sl = 0.02, sh = 0.4, r1 = 0.3, r_2=1/0.3, v_l=0, v_h=255, pixel_level=False):
+    def __init__(self, p = .50, sl = 0.02, sh = 0.4, r1 = 0.3, r2=1/0.3, vl=0, vh=255, max_box=4, pixel_level=False):
         self.p = p
         self.sl = sl
         self.sh = sh
         self.r1 = r1
-        self.r2 = r_2
-        self.vl = v_l
-        self.v_h = v_h
+        self.r2 = r2
+        self.vl = vl
+        self.vh = vh
+        self.max_box = max_box + 1 
         self.pixel = pixel_level
 
  
@@ -298,14 +299,15 @@ class RandomErase:
 
         p_1 = np.random.rand()
 
-        num = np.random.randint(1,4)
+        num_boxes = np.random.randint(1,self.max_box)
 
+        # return based on probability
         if p_1 > self.p:
             return labels
         
-        top = 0
-        left = 0
-        for box in range(num):
+        top = -1
+        left = -1
+        for box in range(num_boxes):
             for attempt in range(4):
                 s = np.random.uniform(self.sl, self.sh) * img_h * img_w
                 r = np.random.uniform(self.r1, self.r2)
@@ -314,12 +316,15 @@ class RandomErase:
                 left = np.random.randint(0, img_w-w)
                 top = np.random.randint(0, img_h-h)
 
+                # once a valid box is found, break
                 if left + w <= img_w and top + h <= img_h:
                     break
         
-            c = np.random.uniform(self.vl, self.v_h)
+            # apply the pixel a pixel value
+            c = np.random.uniform(self.vl, self.vh)
 
-            if top != 0 and left != 0:
+            # add a new label if we found one
+            if top != -1 and left != -1:
                 input_img[top:top + h, left:left + w] = c
                 labels["img"] = input_img
 
@@ -866,9 +871,10 @@ def v8_transforms(dataset, imgsz, hyp, stretch=False):
                 sh = hyp.sh,
                 r1 = hyp.r1,
                 p = hyp.RandomEraseP,
-                r_2=hyp.r2, 
-                v_l=hyp.vl, 
-                v_h=hyp.vh),
+                r2=hyp.r2, 
+                vl=hyp.vl, 
+                vh=hyp.vh,
+                max_box =hyp.max_box),
             MixUp(dataset, pre_transform=pre_transform, p=hyp.mixup),
             Albumentations(p=1.0),
             RandomHSV(hgain=hyp.hsv_h, sgain=hyp.hsv_s, vgain=hyp.hsv_v),

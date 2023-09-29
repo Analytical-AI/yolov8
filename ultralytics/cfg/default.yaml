@@ -114,6 +114,7 @@ r1: .2 # minimum apect ratio of erased area (w and h of the rectangle cut out)
 r2: 4 # maximum aspect ratio of erased area
 vl: 0 # min pixel value for random erase (creates a grayscale block)
 vh: 255 # max pixel value for random erase
+max_box: 4 # maxinum number of random erase boxes
 RandomEraseP: .5 # (float) random erase probability
 
 # Custom config.yaml ---------------------------------------------------------------------------------------------------
